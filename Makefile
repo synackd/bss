@@ -22,37 +22,26 @@
 
 # Service
 NAME ?= bss
-VERSION ?= $(shell cat .version)
+
+# Version
+BUILD := $(shell git rev-parse --short HEAD)
+VERSION := $(shell git describe --tags --abbrev=0 | tr -d v | tee .version)
 BINARIES = boot-script-service bss-init
 
-
-all : image unittest ct snyk ct_image
-
+.PHONY: binaries
 binaries: $(BINARIES)
+
+.PHONY: docker
+docker: $(BINARIES)
+	docker build --tag openchami/bss:v$(VERSION)-dirty .
 
 %: cmd/%/*.go
 	GOOS=linux GOARCH=amd64 go build -v -tags musl $(LDFLAGS) -o $@ ./$(dir $<)
 
+.PHONY: clean
 clean:
 	rm -f $(BINARIES)
 
-image:
-	docker build ${NO_CACHE} --pull ${DOCKER_ARGS} --tag '${NAME}:${VERSION}' .
-
-unittest:
-	./runUnitTest.sh
-
+.PHONY: snyk
 snyk:
 	./runSnyk.sh
-
-ct:
-	./runCT.sh
-
-ct_image:
-	docker build --no-cache -f test/ct/Dockerfile test/ct/ --tag hms-bss-hmth-test:${VERSION}
-
-BUILD := `git rev-parse --short HEAD`
-VERSION := `git describe --tags --abbrev=0`
-
-docker: $(BINARIES)
-	docker build --tag openchami/bss:$(VERSION)-dirty .
